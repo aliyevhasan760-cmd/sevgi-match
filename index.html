@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SevgiMatch – Bir uyğunluq, min gözəl başlanğıc</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-deep: #080808;
+            --bg-card: #121212;
+            --dark-red: #8B0000;
+            --primary-red: #E50935;
+            --light-red: #FF4058;
+            --white: #FFFFFF;
+            --gray: #999999;
+            --border: #222222;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: var(--bg-deep); color: var(--white); min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+        
+        .app-container { width: 100%; max-width: 480px; background: var(--bg-deep); min-height: 100vh; display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: 0 0 40px rgba(229, 9, 53, 0.15); }
+        
+        header { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: rgba(8,8,8,0.9); position: sticky; top: 0; z-index: 100; }
+        .logo { font-size: 22px; font-weight: 800; background: linear-gradient(45deg, var(--primary-red), var(--light-red)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: flex; align-items: center; gap: 8px; }
+        
+        .content { flex: 1; overflow-y: auto; padding-bottom: 80px; }
+        .screen { display: none; padding: 20px; animation: fadeIn 0.3s ease; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Form Inputs */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 13px; color: var(--gray); margin-bottom: 6px; }
+        .form-control { width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; color: var(--white); font-size: 14px; outline: none; }
+        .form-control:focus { border-color: var(--primary-red); }
+
+        .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--primary-red), var(--light-red)); border: none; border-radius: 12px; color: var(--white); font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 15px rgba(229,9,53,0.3); }
+
+        /* Card Stack */
+        .card-stack { position: relative; width: 100%; height: 420px; margin-top: 15px; }
+        .profile-card { position: absolute; width: 100%; height: 100%; background: var(--bg-card); border-radius: 24px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: flex-end; }
+        .profile-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .profile-gradient { position: absolute; bottom: 0; left: 0; width: 100%; height: 60%; background: linear-gradient(to top, rgba(8,8,8,0.95), transparent); }
+        .profile-info { position: relative; z-index: 2; padding: 20px; }
+        .profile-info h2 { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+        .profile-info p { color: var(--gray); font-size: 14px; margin-bottom: 8px; }
+        
+        .action-buttons { display: flex; justify-content: center; gap: 20px; margin-top: 24px; }
+        .action-btn { width: 60px; height: 60px; border-radius: 50%; border: none; background: var(--bg-card); color: var(--white); font-size: 20px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); }
+        .action-btn.pass { color: var(--gray); }
+        .action-btn.like { background: linear-gradient(135deg, var(--primary-red), var(--light-red)); color: var(--white); font-size: 24px; }
+
+        /* Bottom Nav */
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; max-width: 480px; background: rgba(18,18,18,0.95); backdrop-filter: blur(10px); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 12px 0; z-index: 1000; display: none; }
+        .nav-item { background: none; border: none; color: var(--gray); font-size: 20px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .nav-item span { font-size: 10px; font-weight: 500; }
+        .nav-item.active { color: var(--primary-red); }
+
+        .badge { background: rgba(229,9,53,0.15); color: var(--primary-red); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container" id="appContainer">
+        <header>
+            <div class="logo"><i class="fa-solid fa-heart-pulse"></i> SevgiMatch</div>
+            <div id="header-status" style="font-size: 12px; color: var(--gray);">Qonaq</div>
+        </header>
+
+        <div class="content">
+            <!-- 1. GİRİŞ / QEYDİYYAT EKRANI -->
+            <div id="screen-auth" class="screen active">
+                <div style="text-align: center; margin: 30px 0;">
+                    <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 8px;">Xoş gəlmisiniz</h2>
+                    <p style="color: var(--gray); font-size: 14px;">Bir uyğunluq, min gözəl başlanğıc.</p>
+                </div>
+                
+                <div class="form-group">
+                    <label>E-poçt ünvanı</label>
+                    <input type="email" id="auth-email" class="form-control" placeholder="orxan@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Şifrə (Minimum 6 simvol)</label>
+                    <input type="password" id="auth-password" class="form-control" placeholder="••••••••">
+                </div>
+                
+                <button class="btn-primary" onclick="handleLogin()">Daxil ol</button>
+                <button class="btn-primary" style="background: var(--bg-card); border: 1px solid var(--border); margin-top: 10px;" onclick="handleRegister()">Qeydiyyatdan keç</button>
+                <p id="auth-error" style="color: var(--light-red); font-size: 13px; text-align: center; margin-top: 15px;"></p>
+            </div>
+
+            <!-- 2. TANIŞLIQ (DISCOVERY) -->
+            <div id="screen-discovery" class="screen">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 id="location-title" style="font-size: 18px; font-weight: 700;">Azərbaycan</h3>
+                    <button onclick="logout()" style="background: var(--dark-red); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">Çıxış</button>
+                </div>
+                <div class="card-stack" id="cardStack">
+                    <div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--gray); text-align:center;">
+                        <p>Profillər yüklənir...</p>
+                    </div>
+                </div>
+                <div class="action-buttons" id="actionButtons" style="display: none;">
+                    <button class="action-btn pass" onclick="nextCard(-1)"><i class="fa-solid fa-xmark"></i></button>
+                    <button class="action-btn like" onclick="nextCard(1)"><i class="fa-solid fa-heart"></i></button>
+                </div>
+            </div>
+
+            <!-- 3. STORY -->
+            <div id="screen-stories" class="screen">
+                <h2 style="margin-bottom: 15px;">Hekayələr 🔥</h2>
+                <p style="color: var(--gray); font-size: 14px;">Tezliklə real vaxtda şəkil və video hekayələr paylaşılacaq.</p>
+            </div>
+
+            <!-- 4. MATCH -->
+            <div id="screen-matches" class="screen">
+                <h2 style="margin-bottom: 15px;">Eşləşmələr 💕</h2>
+                <p style="color: var(--gray); font-size: 14px;">Qarşılıqlı bəyənmələr burada görünəcək.</p>
+            </div>
+
+            <!-- 5. ÇAT (MƏSAJLAR) -->
+            <div id="screen-chat" class="screen">
+                <h2 style="margin-bottom: 15px;">Mesajlar 💬</h2>
+                <p style="color: var(--gray); font-size: 14px;">Aktiv söhbətləriniz yoxdur.</p>
+            </div>
+
+            <!-- 6. PROFİL & ŞƏKİL YÜKLƏMƏ -->
+            <div id="screen-profile" class="screen">
+                <div style="text-align: center; margin-top: 10px;">
+                    <div style="position: relative; width: 100px; height: 100px; margin: 0 auto 12px auto;">
+                        <img id="profile-avatar" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-red);">
+                    </div>
+                    <h2 id="profile-name">İstifadəçi</h2>
+                    <p style="color: var(--gray); font-size: 14px; margin-top: 4px;" id="profile-city">Azərbaycan</p>
+                </div>
+                
+                <div style="margin-top: 25px; background: var(--bg-card); border-radius: 16px; padding: 15px; border: 1px solid var(--border);">
+                    <h4 style="font-size: 15px; margin-bottom: 12px;">Profil Şəklini Yenilə</h4>
+                    <input type="file" id="upload-avatar-file" class="form-control" accept="image/*" style="margin-bottom: 10px;">
+                    <button class="btn-primary" onclick="uploadProfilePhoto()" style="margin-top: 0;">Şəkli Yüklə</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav" id="bottomNav">
+            <button class="nav-item active" onclick="switchScreen('discovery', this)"><i class="fa-solid fa-heart"></i><span>Tanışlıq</span></button>
+            <button class="nav-item" onclick="switchScreen('stories', this)"><i class="fa-solid fa-fire"></i><span>Story</span></button>
+            <button class="nav-item" onclick="switchScreen('matches', this)"><i class="fa-solid fa-face-smile-hearts"></i><span>Match</span></button>
+            <button class="nav-item" onclick="switchScreen('chat', this)"><i class="fa-solid fa-comments"></i><span>Mesajlar</span></button>
+            <button class="nav-item" onclick="switchScreen('profile', this)"><i class="fa-solid fa-user"></i><span>Profil</span></button>
+        </nav>
+    </div>
+
+    <script>
+        let supabaseClient = null;
+        let currentUser = null;
+        let availableProfiles = [];
+        let currentProfileIndex = 0;
+
+        async function initApp() {
+            try {
+                const res = await fetch('/api/config');
+                const config = await res.json();
+                if (config.supabaseUrl && config.supabaseAnonKey) {
+                    supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (session) {
+                        currentUser = session.user;
+                        enterMainApp();
+                    }
+                }
+            } catch (err) {
+                console.error("Supabase konfiqurasiya xətası:", err);
+            }
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const errEl = document.getElementById('auth-error');
+            
+            if (!supabaseClient) {
+                errEl.innerText = "Supabase açarları serverdə təyin edilməyib! .env faylını yoxlayın.";
+                return;
+            }
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) {
+                errEl.innerText = error.message;
+            } else {
+                currentUser = data.user;
+                enterMainApp();
+            }
+        }
+
+        async function handleRegister() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const errEl = document.getElementById('auth-error');
+
+            if (!supabaseClient) {
+                errEl.innerText = "Supabase açarları serverdə təyin edilməyib!";
+                return;
+            }
+
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
+            if (error) {
+                errEl.innerText = error.message;
+            } else {
+                alert("Qeydiyyat uğurludur! E-poçtunuzu yoxlayın və ya daxil olun.");
+            }
+        }
+
+        async function logout() {
+            if (supabaseClient) await supabaseClient.auth.signOut();
+            currentUser = null;
+            document.getElementById('bottomNav').style.display = 'none';
+            switchScreen('auth');
+        }
+
+        function enterMainApp() {
+            document.getElementById('bottomNav').style.display = 'flex';
+            document.getElementById('header-status').innerText = currentUser.email;
+            switchScreen('discovery');
+            loadProfiles();
+        }
+
+        async function loadProfiles() {
+            if (!supabaseClient) {
+                // Demo rejim (əgər Supabase qoşulmayıbsa)
+                document.getElementById('cardStack').innerHTML = `
+                    <div class="profile-card">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500" class="profile-img">
+                        <div class="profile-gradient"></div>
+                        <div class="profile-info">
+                            <h2>Aytən, 22</h2>
+                            <p><i class="fa-solid fa-location-dot"></i> Bakı</p>
+                            <p style="color:var(--white); font-size:13px;">Real profilləri görmək üçün Supabase qoşun.</p>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('actionButtons').style.display = 'flex';
+                return;
+            }
+
+            const { data, error } = await supabaseClient.from('profiles').select('*').neq('id', currentUser.id);
+            if (data && data.length > 0) {
+                availableProfiles = data;
+                renderCard();
+                document.getElementById('actionButtons').style.display = 'flex';
+            } else {
+                document.getElementById('cardStack').innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--gray); text-align:center;"><h3>Digər profil tapılmadı.</h3></div>`;
+            }
+        }
+
+        function renderCard() {
+            const stack = document.getElementById('cardStack');
+            if (currentProfileIndex >= availableProfiles.length) {
+                stack.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--gray); text-align:center;"><h3>Bütün profillərə baxdınız! 🎉</h3></div>`;
+                document.getElementById('actionButtons').style.display = 'none';
+                return;
+            }
+            const p = availableProfiles[currentProfileIndex];
+            stack.innerHTML = `
+                <div class="profile-card">
+                    <img src="${p.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500'}" class="profile-img">
+                    <div class="profile-gradient"></div>
+                    <div class="profile-info">
+                        <h2>${p.full_name || p.username || 'İstifadəçi'}</h2>
+                        <p><i class="fa-solid fa-location-dot"></i> ${p.city || 'Bakı'}</p>
+                        <p style="color:var(--white); font-size:13px; margin-top:4px;">${p.bio || ''}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function nextCard(direction) {
+            currentProfileIndex++;
+            renderCard();
+        }
+
+        async function uploadProfilePhoto() {
+            const fileInput = document.getElementById('upload-avatar-file');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert("Zəhmət olmasa şəkil seçin.");
+                return;
+            }
+            alert("Şəkil seçildi. Supabase Storage aktiv olduqda avtomatik yüklənəcək.");
+        }
+
+        function switchScreen(screenName, btnElement) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-' + screenName).classList.add('active');
+            
+            if (btnElement) {
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                btnElement.classList.add('active');
+            }
+        }
+
+        // Tətbiqi işə sal
+        initApp();
+    </script>
+</body>
+  </html>
+  
